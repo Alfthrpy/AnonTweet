@@ -1,7 +1,9 @@
 // lib/screens/posts_page.dart
+import 'package:blog_anon/components/postCards.dart';
 import 'package:flutter/material.dart';
 import '../models/post.dart';
-import '../services/supabase_service.dart';
+import '../services/posts_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PostsPage extends StatefulWidget {
   const PostsPage({Key? key}) : super(key: key);
@@ -11,7 +13,7 @@ class PostsPage extends StatefulWidget {
 }
 
 class _PostsPageState extends State<PostsPage> {
-  final _supabaseService = SupabaseService();
+  final _postService = PostsService();
   List<Post> _posts = [];
   bool _isLoading = false;
   final ScrollController _scrollController = ScrollController();
@@ -23,13 +25,19 @@ class _PostsPageState extends State<PostsPage> {
     _setupRealtimeSubscription();
   }
 
-  void _setupRealtimeSubscription() {
-    _supabaseService.client
+  Future<void> _setupRealtimeSubscription() async {
+    _postService.client
         .from('posts')
-        .stream(primaryKey: ['id']).listen((data) {
+        .stream(primaryKey: ['id']).listen((data) async {
       if (mounted) {
+        final posts = await Future.wait(data.map((post) async {
+          final postObj = Post.fromJson(post);
+          postObj.reactionCount =
+              await _postService.getReactionCount(post['id']);
+          return postObj;
+        }).toList());
         setState(() {
-          _posts = data.map((post) => Post.fromJson(post)).toList()
+          _posts = posts
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Sort desc
         });
       }
@@ -39,7 +47,7 @@ class _PostsPageState extends State<PostsPage> {
   Future<void> _loadPosts() async {
     setState(() => _isLoading = true);
     try {
-      final postsData = await _supabaseService.getPosts();
+      final postsData = await _postService.getPosts();
       if (mounted) {
         setState(() {
           _posts = postsData.map((data) => Post.fromJson(data)).toList();
@@ -83,64 +91,11 @@ class _PostsPageState extends State<PostsPage> {
                       child: Text('Belum ada ciutan'),
                     )
                   : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
                       itemCount: _posts.length,
                       itemBuilder: (context, index) {
-                        final post = _posts[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor:
-                                          Theme.of(context).primaryColor,
-                                      child: Text(
-                                        post.author[0].toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            post.author,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          Text(
-                                            post.timestamp,
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  post.content,
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                              ],
-                            ),
-                          ),
+                        return PostCard(
+                          post: _posts[index],
+                          isDetailed: false,
                         );
                       },
                     ),

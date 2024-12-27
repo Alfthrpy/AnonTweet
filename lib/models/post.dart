@@ -4,15 +4,16 @@ class Post {
   final String author;
   final String content;
   final String user_id;
+  int? reactionCount;
   final DateTime createdAt;
 
-  Post({
-    required this.id,
-    required this.author,
-    required this.content,
-    required this.user_id,
-    required this.createdAt,
-  });
+  Post(
+      {required this.id,
+      required this.author,
+      required this.content,
+      required this.user_id,
+      required this.createdAt,
+      this.reactionCount});
 
   factory Post.fromJson(Map<String, dynamic> json) {
     return Post(
@@ -20,6 +21,7 @@ class Post {
       author: json['author'],
       content: json['content'],
       user_id: json['user_id'],
+      reactionCount: json['reaction_count'] ?? 0,
       createdAt: DateTime.parse(json['created_at']),
     );
   }

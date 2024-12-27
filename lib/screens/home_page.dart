@@ -1,7 +1,7 @@
 // lib/screens/home_page.dart
 import 'dart:io';
 
-import 'package:blog_anon/services/supabase_service.dart';
+import 'package:blog_anon/services/posts_service.dart';
 import 'package:flutter/material.dart';
 import '../models/post.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,7 +17,7 @@ class _HomePageState extends State<HomePage> {
   final _authorController = TextEditingController();
   final _contentController = TextEditingController();
 
-  final _supabaseService = SupabaseService();
+  final _postService = PostsService();
   List<Post> _posts = [];
   bool _isLoading = false;
 
@@ -30,8 +30,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadPosts() async {
     setState(() => _isLoading = true);
     try {
-      final postsData = await _supabaseService.getPosts();
-      print(postsData);
+      final postsData = await _postService.getPosts();
       setState(() {
         _posts = postsData.map((data) => Post.fromJson(data)).toList();
       });
@@ -57,7 +56,7 @@ class _HomePageState extends State<HomePage> {
     if (_authorController.text.isNotEmpty &&
         _contentController.text.isNotEmpty) {
       try {
-        await _supabaseService.createPost(
+        await _postService.createPost(
           author: _authorController.text,
           content: _contentController.text,
           user_id: prefs.getString("user_id") ?? '',

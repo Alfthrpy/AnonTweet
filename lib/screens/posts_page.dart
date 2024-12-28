@@ -1,5 +1,6 @@
 // lib/screens/posts_page.dart
 import 'package:blog_anon/components/postCards.dart';
+import 'package:blog_anon/services/reactions_service.dart';
 import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../services/posts_service.dart';
@@ -14,15 +15,23 @@ class PostsPage extends StatefulWidget {
 
 class _PostsPageState extends State<PostsPage> {
   final _postService = PostsService();
+  final _reactionService = ReactionService();
   List<Post> _posts = [];
+  Map<int, bool> _reactions = {}; // Menyimpan status like untuk setiap post
+  Map<int, int> _reactionCounts =
+      {}; // Menyimpan jumlah reaction untuk setiap post
   bool _isLoading = false;
+  bool _isLoadingMore = false;
   final ScrollController _scrollController = ScrollController();
+  int _currentPage = 1;
+  final int _postsPerPage = 10;
 
   @override
   void initState() {
     super.initState();
     _loadPosts();
     _setupRealtimeSubscription();
+    _scrollController.addListener(_onScroll);
   }
 
   Future<void> _setupRealtimeSubscription() async {
@@ -39,18 +48,30 @@ class _PostsPageState extends State<PostsPage> {
         setState(() {
           _posts = posts
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Sort desc
+          _updateReactions(); // Update reactions state
         });
       }
     });
   }
 
-  Future<void> _loadPosts() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadPosts({int page = 1}) async {
+    if (page == 1) {
+      setState(() => _isLoading = true);
+    } else {
+      setState(() => _isLoadingMore = true);
+    }
     try {
-      final postsData = await _postService.getPosts();
+      final postsData = await _postService.getPosts(
+          limit: _postsPerPage, offset: (page - 1) * _postsPerPage);
       if (mounted) {
         setState(() {
-          _posts = postsData.map((data) => Post.fromJson(data)).toList();
+          if (page == 1) {
+            _posts = postsData.map((data) => Post.fromJson(data)).toList();
+          } else {
+            _posts
+                .addAll(postsData.map((data) => Post.fromJson(data)).toList());
+          }
+          _updateReactions(); // Update reactions state
         });
       }
     } catch (e) {
@@ -61,13 +82,49 @@ class _PostsPageState extends State<PostsPage> {
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        if (page == 1) {
+          setState(() => _isLoading = false);
+        } else {
+          setState(() => _isLoadingMore = false);
+        }
       }
     }
   }
 
-  Future<void> _refreshPosts() async {
-    await _loadPosts();
+  // Memperbarui status reactions untuk semua post
+  Future<void> _updateReactions() async {
+    for (var post in _posts) {
+      final userId =
+          (await SharedPreferences.getInstance()).getString("user_id") ?? '';
+      final hasReacted = await _reactionService.hasReacted(post.id, userId);
+      setState(() {
+        _reactions[post.id] = hasReacted;
+        _reactionCounts[post.id] = post.reactionCount ?? 0;
+      });
+    }
+  }
+
+  Future<void> _handleReaction(int postId) async {
+    final userId =
+        (await SharedPreferences.getInstance()).getString("user_id") ?? '';
+    await _reactionService.toggleReaction(postId, 'like', userId);
+    setState(() {
+      _reactions[postId] = !_reactions[postId]!; // Toggle status
+      if (_reactions[postId]!) {
+        _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) + 1;
+      } else {
+        _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) - 1;
+      }
+    });
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels ==
+            _scrollController.position.maxScrollExtent &&
+        !_isLoadingMore) {
+      _currentPage++;
+      _loadPosts(page: _currentPage);
+    }
   }
 
   @override
@@ -91,16 +148,29 @@ class _PostsPageState extends State<PostsPage> {
                       child: Text('Belum ada ciutan'),
                     )
                   : ListView.builder(
-                      itemCount: _posts.length,
+                      controller: _scrollController,
+                      itemCount: _posts.length + (_isLoadingMore ? 1 : 0),
                       itemBuilder: (context, index) {
+                        if (index == _posts.length) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
                         return PostCard(
                           post: _posts[index],
                           isDetailed: false,
+                          hasReacted: _reactions[_posts[index].id] ?? false,
+                          reactionCount: _reactionCounts[_posts[index].id] ?? 0,
+                          onReaction: () => _handleReaction(_posts[index].id),
                         );
                       },
                     ),
             ),
     );
+  }
+
+  Future<void> _refreshPosts() async {
+    _currentPage = 1;
+    await _loadPosts(page: _currentPage);
   }
 
   @override

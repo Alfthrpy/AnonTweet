@@ -1,72 +1,49 @@
-// lib/widgets/post_card.dart
-import 'package:blog_anon/services/reactions_service.dart';
 import 'package:flutter/material.dart';
 import '../models/post.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-class PostCard extends StatefulWidget {
-  final Post post;
+class PostCard extends StatelessWidget {
+  final Post? post;
   final bool isDetailed;
+  final bool hasReacted; // Status apakah user sudah memberi reaksi
+  final int reactionCount; // Jumlah reaksi pada postingan
+  final VoidCallback onReaction; // Callback untuk menangani perubahan reaksi
 
   const PostCard({
     Key? key,
     required this.post,
     this.isDetailed = false,
+    required this.hasReacted,
+    required this.reactionCount,
+    required this.onReaction,
   }) : super(key: key);
 
   @override
-  State<PostCard> createState() => _PostCardState();
-}
-
-class _PostCardState extends State<PostCard> {
-  final _reactionService = ReactionService();
-  bool _hasReacted = false;
-  int _reactionCount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkReaction();
-    _reactionCount = widget.post.reactionCount ?? 0;
-  }
-
-  Future<void> _checkReaction() async {
-    final hasReacted = await _reactionService.hasReacted(widget.post.id,
-        (await SharedPreferences.getInstance()).getString("user_id") ?? '');
-    if (mounted) {
-      setState(() => _hasReacted = hasReacted);
-    }
-  }
-
-  Future<void> _handleReaction() async {
-    await _reactionService.toggleReaction(widget.post.id, 'like',
-        (await SharedPreferences.getInstance()).getString("user_id") ?? '');
-    setState(() {
-      _hasReacted = !_hasReacted;
-      _reactionCount += _hasReacted ? 1 : -1;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    if (post == null) {
+      return Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
     return Card(
       elevation: 2,
       margin: EdgeInsets.only(
         bottom: 16,
-        left: widget.isDetailed ? 0 : 16,
-        right: widget.isDetailed ? 0 : 16,
+        left: isDetailed ? 0 : 16,
+        right: isDetailed ? 0 : 16,
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Bagian header dengan avatar dan info penulis
             Row(
               children: [
                 CircleAvatar(
                   backgroundColor: Theme.of(context).primaryColor,
                   child: Text(
-                    widget.post.author[0].toUpperCase(),
+                    post!.author[0].toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -79,14 +56,14 @@ class _PostCardState extends State<PostCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.post.author,
+                        post!.author,
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
                       ),
                       Text(
-                        widget.post.timestamp,
+                        post!.timestamp,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -95,45 +72,36 @@ class _PostCardState extends State<PostCard> {
               ],
             ),
             const SizedBox(height: 12),
+            // Bagian konten postingan
             Text(
-              widget.post.content,
+              post!.content,
               style: Theme.of(context).textTheme.bodyMedium,
-              maxLines: widget.isDetailed ? null : 3,
-              overflow: widget.isDetailed ? null : TextOverflow.ellipsis,
             ),
             const SizedBox(height: 12),
+            // Bagian reaksi (like) dan jumlah reaksi
             Row(
               children: [
                 InkWell(
-                  onTap: _handleReaction,
+                  onTap: onReaction, // Menangani perubahan reaksi ketika di-tap
                   borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Row(
                       children: [
                         Icon(
-                          _hasReacted ? Icons.favorite : Icons.favorite_border,
-                          color: _hasReacted ? Colors.red : Colors.grey,
+                          hasReacted ? Icons.favorite : Icons.favorite_border,
+                          color: hasReacted ? Colors.red : Colors.grey,
                           size: 20,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _reactionCount.toString(),
+                          reactionCount.toString(),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
                   ),
                 ),
-                if (!widget.isDetailed) ...[
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () {
-                      // Navigate to detail page
-                    },
-                    child: const Text('Lihat Detail'),
-                  ),
-                ],
               ],
             ),
           ],

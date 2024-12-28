@@ -5,11 +5,16 @@ class PostsService {
   final SupabaseClient client = Supabase.instance.client;
 
   // Fetch all posts
-  Future<List<Map<String, dynamic>>> getPosts() async {
-    final response = await client.from('posts').select('''
+  Future<List<Map<String, dynamic>>> getPosts(
+      {int limit = 10, int offset = 0}) async {
+    final response = await client
+        .from('posts')
+        .select('''
       *,
       reactions:reactions(count)
-    ''').order('created_at', ascending: false);
+    ''')
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
 
     return List<Map<String, dynamic>>.from(response.map((post) {
       return {...post, 'reaction_count': post['reactions'][0]['count']};
@@ -24,11 +29,18 @@ class PostsService {
     return response.count;
   }
 
-  Future<List<Map<String, dynamic>>> getPostsByUserId(String userId) async {
-    final response = await client.from('posts').select('''
+  Future<List<Map<String, dynamic>>> getPostsByUserId(String userId,
+      {int limit = 10, int offset = 0}) async {
+    final response = await client
+        .from('posts')
+        .select('''
       *,
       reactions:reactions(count)
-    ''').eq('user_id', userId).order('created_at', ascending: false);
+    ''')
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+    ;
 
     return List<Map<String, dynamic>>.from(response.map((post) {
       return {...post, 'reaction_count': post['reactions'][0]['count']};

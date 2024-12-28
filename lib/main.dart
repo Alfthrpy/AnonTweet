@@ -1,9 +1,9 @@
 // lib/main.dart
 import 'package:blog_anon/screens/posts_me_page.dart';
+import 'package:blog_anon/screens/posts_page.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_page.dart';
-import 'screens/posts_page.dart';
 import 'navigation/bottom_navigation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';

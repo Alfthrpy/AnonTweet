@@ -1,3 +1,4 @@
+import 'package:blog_anon/themes/colors.dart';
 import 'package:flutter/material.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -8,7 +9,7 @@ class ProfilePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil'),
-        backgroundColor: Colors.purple,
+        backgroundColor: tertiaryColor,
       ),
       body: const Center(
         child: Text('Halaman Profil - Akan diimplementasikan'),

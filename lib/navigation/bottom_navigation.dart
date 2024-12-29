@@ -1,5 +1,6 @@
 // navigation/bottom_navigation.dart
 import 'package:flutter/material.dart';
+import '../themes/colors.dart';
 
 class BottomNavigation extends StatelessWidget {
   final int selectedIndex;
@@ -18,18 +19,21 @@ class BottomNavigation extends StatelessWidget {
         BottomNavigationBarItem(
           icon: Icon(Icons.home),
           label: 'Beranda',
+          backgroundColor: primaryColor,
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.article),
           label: 'Cuitan',
+          backgroundColor: primaryColor,
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.assessment),
           label: 'Cuitan Anda',
+          backgroundColor: primaryColor,
         ),
       ],
       currentIndex: selectedIndex,
-      selectedItemColor: Colors.purple,
+      selectedItemColor: tertiaryColor,
       onTap: onItemTapped,
     );
   }

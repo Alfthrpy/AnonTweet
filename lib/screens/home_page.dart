@@ -5,6 +5,7 @@ import 'package:blog_anon/services/supabase_service.dart';
 import 'package:flutter/material.dart';
 import '../models/post.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../themes/colors.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -35,7 +36,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _posts = postsData.map((data) => Post.fromJson(data)).toList();
       });
-    } on SocketException catch (e) {
+    } on SocketException {
       // Menangani kesalahan jaringan (misalnya, tidak ada koneksi internet)
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -62,10 +63,10 @@ class _HomePageState extends State<HomePage> {
           content: _contentController.text,
           user_id: prefs.getString("user_id") ?? '',
         );
-        _authorController.clear();
+        // _authorController.clear();
         _contentController.clear();
         await _loadPosts(); // Reload posts after adding
-      } on SocketException catch (e) {
+      } on SocketException {
         // Menangani jika tidak ada koneksi internet
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -90,8 +91,15 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AnonTweet'),
-        backgroundColor: Colors.blue,
+        title: const Text(
+          'AnonTweet',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: baseColor, // Putih dalam hex code
+          ),
+        ),
+        backgroundColor:
+            primaryColor, // Pastikan menambahkan 0xFF untuk opacity penuh
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -109,35 +117,102 @@ class _HomePageState extends State<HomePage> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                      textAlign: TextAlign
+                          .center, // Properti textAlign dipindahkan ke sini
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8), // Rounded full
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.5),
+                            spreadRadius: 0,
+                            blurRadius: 6,
+                            offset: Offset(0, 4), // Shadow appears below
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _authorController,
+                        decoration: const InputDecoration(
+                          labelText: 'Sender',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(8), // Rounded full
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.transparent),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(8),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.blue),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(8),
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: _authorController,
-                      decoration: const InputDecoration(
-                        labelText: 'Sender',
-                        border: OutlineInputBorder(),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8), // Rounded full
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.5),
+                            spreadRadius: 0,
+                            blurRadius: 6,
+                            offset: Offset(0, 4), // Shadow appears below
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _contentController,
-                      decoration: const InputDecoration(
-                        labelText: 'Content',
-                        border: OutlineInputBorder(),
+                      child: TextField(
+                        controller: _contentController,
+                        maxLines: 3, // Multi-line support
+                        decoration: const InputDecoration(
+                          labelText: 'Content',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(8), // Rounded full
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.transparent),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(8),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.blue),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(8),
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
                       ),
-                      maxLines: 3,
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: _addPost,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: tertiaryColor,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: const Text(
                         'Post',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: baseColor),
                       ),
                     ),
                   ],
@@ -146,11 +221,11 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Ciutan Terbaru',
+              'Cuitan Terbaru',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black),
             ),
             const SizedBox(height: 8),
             SizedBox(
@@ -164,6 +239,11 @@ class _HomePageState extends State<HomePage> {
                     width: 300,
                     margin: const EdgeInsets.only(right: 16),
                     child: Card(
+                      color: baseColor, // Background white
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8), // Rounded-md
+                      ),
+                      elevation: 4, // Optional: Add slight shadow if needed
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(

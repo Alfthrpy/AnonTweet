@@ -1,4 +1,5 @@
 // lib/screens/posts_page.dart
+import 'package:blog_anon/themes/colors.dart';
 import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../services/supabase_service.dart';
@@ -73,7 +74,9 @@ class _PostsPageState extends State<PostsMePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ciutan Anda'),
+        title: const Text('Cuitan Anda',
+            style:
+                TextStyle(fontWeight: FontWeight.bold, color: tertiaryColor)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -87,7 +90,7 @@ class _PostsPageState extends State<PostsMePage> {
               onRefresh: _refreshPosts,
               child: _posts.isEmpty
                   ? const Center(
-                      child: Text('Belum ada ciutan'),
+                      child: Text('Belum ada cuitan'),
                     )
                   : ListView.builder(
                       controller: _scrollController,
@@ -95,60 +98,74 @@ class _PostsPageState extends State<PostsMePage> {
                       itemCount: _posts.length,
                       itemBuilder: (context, index) {
                         final post = _posts[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor:
-                                          Theme.of(context).primaryColor,
-                                      child: Text(
-                                        post.author[0].toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            post.author,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          Text(
-                                            post.timestamp,
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  post.content,
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
+                        return Container(
+  margin: const EdgeInsets.symmetric(vertical: 5),
+  decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(8), // Rounded-md
+    boxShadow: [
+      BoxShadow(
+        color: Colors.grey.withOpacity(0.2),
+        spreadRadius: 0,
+        blurRadius: 6,
+        offset: Offset(0, 2), // Shadow lebih pendek ke bawah
+      ),
+    ],
+  ),
+  child: Card(
+    color: Colors.white,
+    margin: const EdgeInsets.only(bottom: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: tertiaryColor,
+                child: Text(
+                  post.author[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      post.author,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      post.timestamp,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            post.content,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ],
+      ),
+    ),
+  ),
+);
+
                       },
                     ),
             ),

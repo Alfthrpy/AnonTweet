@@ -7,15 +7,17 @@ class PostCard extends StatelessWidget {
   final bool hasReacted; // Status apakah user sudah memberi reaksi
   final int reactionCount; // Jumlah reaksi pada postingan
   final VoidCallback onReaction; // Callback untuk menangani perubahan reaksi
+  final VoidCallback? onEdit;
 
-  const PostCard({
-    Key? key,
-    required this.post,
-    this.isDetailed = false,
-    required this.hasReacted,
-    required this.reactionCount,
-    required this.onReaction,
-  }) : super(key: key);
+  const PostCard(
+      {Key? key,
+      required this.post,
+      this.isDetailed = false,
+      required this.hasReacted,
+      required this.reactionCount,
+      required this.onReaction,
+      this.onEdit})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -40,34 +42,39 @@ class PostCard extends StatelessWidget {
             // Bagian header dengan avatar dan info penulis
             Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  child: Text(
-                    post!.author[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+              CircleAvatar(
+                backgroundColor: Theme.of(context).primaryColor,
+                child: Text(
+                post!.author[0].toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        post!.author,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                  post!.author,
+                  style:
+                    Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      Text(
-                        post!.timestamp,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
                   ),
+                  Text(
+                  post!.timestamp,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                ),
+              ),
+              if (onEdit != null)
+                IconButton(
+                icon: Icon(Icons.edit),
+                onPressed: onEdit,
                 ),
               ],
             ),

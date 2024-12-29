@@ -61,7 +61,6 @@ class _HomePageState extends State<HomePage> {
           content: _contentController.text,
           user_id: prefs.getString("user_id") ?? '',
         );
-        _authorController.clear();
         _contentController.clear();
         await _loadPosts(); // Reload posts after adding
       } on SocketException catch (e) {
@@ -145,7 +144,7 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Ciutan Terbaru',
+              'Cuitan Terbaru',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

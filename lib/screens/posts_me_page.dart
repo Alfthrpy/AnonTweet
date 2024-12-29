@@ -1,121 +1,3 @@
-// // lib/screens/posts_page.dart
-// import 'package:blog_anon/components/postCards.dart';
-// import 'package:flutter/material.dart';
-// import '../models/post.dart';
-// import '../services/posts_service.dart';
-// import 'package:shared_preferences/shared_preferences.dart';
-
-// class PostsMePage extends StatefulWidget {
-//   const PostsMePage({Key? key}) : super(key: key);
-
-//   @override
-//   _PostsPageState createState() => _PostsPageState();
-// }
-
-// class _PostsPageState extends State<PostsMePage> {
-//   final _postService = PostsService();
-//   List<Post> _posts = [];
-//   bool _isLoading = false;
-//   final ScrollController _scrollController = ScrollController();
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _loadPosts();
-//     _setupRealtimeSubscription();
-//   }
-
-//   Future<void> _setupRealtimeSubscription() async {
-//     _postService.client
-//         .from('posts')
-//         .stream(primaryKey: ['id'])
-//         .eq('user_id',
-//             (await SharedPreferences.getInstance()).getString("user_id") ?? '')
-//         .listen((data) async {
-//           if (mounted) {
-//             final posts = await Future.wait(data.map((post) async {
-//               final postObj = Post.fromJson(post);
-//               postObj.reactionCount =
-//                   await _postService.getReactionCount(post['id']);
-//               return postObj;
-//             }).toList());
-//             setState(() {
-//               _posts = posts
-//                 ..sort(
-//                     (a, b) => b.createdAt.compareTo(a.createdAt)); // Sort desc
-//             });
-//           }
-//         });
-//   }
-
-//   Future<void> _loadPosts() async {
-//     final prefs = await SharedPreferences.getInstance();
-//     setState(() => _isLoading = true);
-//     try {
-//       final postsData =
-//           await _postService.getPostsByUserId(prefs.getString("user_id") ?? '');
-//       if (mounted) {
-//         setState(() {
-//           _posts = postsData.map((data) => Post.fromJson(data)).toList();
-//         });
-//       }
-//     } catch (e) {
-//       if (mounted) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           SnackBar(content: Text('Error: $e')),
-//         );
-//       }
-//     } finally {
-//       if (mounted) {
-//         setState(() => _isLoading = false);
-//       }
-//     }
-//   }
-
-//   Future<void> _refreshPosts() async {
-//     await _loadPosts();
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: const Text('Ciutan Anda'),
-//         actions: [
-//           IconButton(
-//             icon: const Icon(Icons.refresh),
-//             onPressed: _refreshPosts,
-//           ),
-//         ],
-//       ),
-//       body: _isLoading
-//           ? const Center(child: CircularProgressIndicator())
-//           : RefreshIndicator(
-//               onRefresh: _refreshPosts,
-//               child: _posts.isEmpty
-//                   ? const Center(
-//                       child: Text('Belum ada ciutan'),
-//                     )
-//                   : ListView.builder(
-//                       itemCount: _posts.length,
-//                       itemBuilder: (context, index) {
-//                         return PostCard(
-//                           post: _posts[index],
-//                         );
-//                       },
-//                     ),
-//             ),
-//     );
-//   }
-
-//   @override
-//   void dispose() {
-//     _scrollController.dispose();
-//     super.dispose();
-//   }
-// }
-
-// lib/screens/posts_page.dart
 import 'package:blog_anon/components/postCards.dart';
 import 'package:blog_anon/services/reactions_service.dart';
 import 'package:flutter/material.dart';
@@ -134,14 +16,15 @@ class _PostsPageState extends State<PostsMePage> {
   final _postService = PostsService();
   final _reactionService = ReactionService();
   List<Post> _posts = [];
-  Map<int, bool> _reactions = {}; // Menyimpan status like untuk setiap post
-  Map<int, int> _reactionCounts =
-      {}; // Menyimpan jumlah reaction untuk setiap post
+  List<Post> _filteredPosts = [];
+  Map<int, bool> _reactions = {};
+  Map<int, int> _reactionCounts = {};
   bool _isLoading = false;
   bool _isLoadingMore = false;
   final ScrollController _scrollController = ScrollController();
   int _currentPage = 1;
   final int _postsPerPage = 10;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -167,16 +50,15 @@ class _PostsPageState extends State<PostsMePage> {
             }).toList());
             setState(() {
               _posts = posts
-                ..sort(
-                    (a, b) => b.createdAt.compareTo(a.createdAt)); // Sort desc
-              _updateReactions(); // Update reactions state
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+              _updateReactions();
+              _filterPosts();
             });
           }
         });
   }
 
   Future<void> _loadPosts({int page = 1}) async {
-    final prefs = await SharedPreferences.getInstance();
     if (page == 1) {
       setState(() => _isLoading = true);
     } else {
@@ -184,7 +66,7 @@ class _PostsPageState extends State<PostsMePage> {
     }
     try {
       final postsData = await _postService.getPostsByUserId(
-          prefs.getString("user_id") ?? '',
+          (await SharedPreferences.getInstance()).getString("user_id") ?? '',
           limit: _postsPerPage,
           offset: (page - 1) * _postsPerPage);
       if (mounted) {
@@ -195,7 +77,8 @@ class _PostsPageState extends State<PostsMePage> {
             _posts
                 .addAll(postsData.map((data) => Post.fromJson(data)).toList());
           }
-          _updateReactions(); // Update reactions state
+          _updateReactions();
+          _filterPosts();
         });
       }
     } catch (e) {
@@ -215,7 +98,76 @@ class _PostsPageState extends State<PostsMePage> {
     }
   }
 
-  // Memperbarui status reactions untuk semua post
+  bool canEditPost(DateTime createdAt) {
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
+    return difference.inMinutes <= 10;
+  }
+
+  Future<void> _editPost(Post post) async {
+    TextEditingController controller =
+        TextEditingController(text: post.content);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Cuitan'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: 'Tulis cuitan baru',
+            ),
+            maxLines: null,
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (controller.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Cuitan tidak boleh kosong')),
+                  );
+                  return;
+                }
+                Navigator.pop(context, controller.text.trim());
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result != null && result.isNotEmpty) {
+      await _updatePost(post, result);
+    }
+  }
+
+  Future<void> _updatePost(Post post, String newContent) async {
+    try {
+      await _postService.updatePost(post.id.toString(), newContent);
+      final updatedPosts = await _postService.getPostsByUserId(
+        (await SharedPreferences.getInstance()).getString("user_id") ?? '',
+      );
+      if (mounted) {
+        setState(() {
+          _posts = updatedPosts.map((data) => Post.fromJson(data)).toList();
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cuitan berhasil diperbarui')),
+      );
+      _loadPosts();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
   Future<void> _updateReactions() async {
     for (var post in _posts) {
       final userId =
@@ -228,12 +180,27 @@ class _PostsPageState extends State<PostsMePage> {
     }
   }
 
+  void _filterPosts() {
+    setState(() {
+      if (_searchQuery.isEmpty) {
+        _filteredPosts = List.from(_posts);
+      } else {
+        _filteredPosts = _posts.where((post) {
+          return post.author
+                  .toLowerCase()
+                  .contains(_searchQuery.toLowerCase()) ||
+              post.content.toLowerCase().contains(_searchQuery.toLowerCase());
+        }).toList();
+      }
+    });
+  }
+
   Future<void> _handleReaction(int postId) async {
     final userId =
         (await SharedPreferences.getInstance()).getString("user_id") ?? '';
     await _reactionService.toggleReaction(postId, 'like', userId);
     setState(() {
-      _reactions[postId] = !_reactions[postId]!; // Toggle status
+      _reactions[postId] = !_reactions[postId]!;
       if (_reactions[postId]!) {
         _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) + 1;
       } else {
@@ -251,11 +218,16 @@ class _PostsPageState extends State<PostsMePage> {
     }
   }
 
+  Future<void> _refreshPosts() async {
+    _currentPage = 1;
+    await _loadPosts(page: _currentPage);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cuitan Anda'),
+        title: const Text('Cuitan Terkini'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -263,38 +235,69 @@ class _PostsPageState extends State<PostsMePage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _refreshPosts,
-              child: _posts.isEmpty
-                  ? const Center(
-                      child: Text('Belum ada ciutan'),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      itemCount: _posts.length + (_isLoadingMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == _posts.length) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-                        return PostCard(
-                          post: _posts[index],
-                          isDetailed: false,
-                          hasReacted: _reactions[_posts[index].id] ?? false,
-                          reactionCount: _reactionCounts[_posts[index].id] ?? 0,
-                          onReaction: () => _handleReaction(_posts[index].id),
-                        );
-                      },
-                    ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                onChanged: (value) {
+                  _searchQuery = value;
+                  _filterPosts();
+                },
+                decoration: const InputDecoration(
+                  hintText: 'Cari Cuitan...',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.search),
+                  fillColor: Colors.white,
+                  filled: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
             ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _refreshPosts,
+                    child: _filteredPosts.isEmpty
+                        ? const Center(
+                            child: Text('Belum ada Cuitan'),
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            itemCount: _filteredPosts.length +
+                                (_isLoadingMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == _filteredPosts.length) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
+                              return PostCard(
+                                post: _filteredPosts[index],
+                                isDetailed: false,
+                                hasReacted:
+                                    _reactions[_filteredPosts[index].id] ??
+                                        false,
+                                reactionCount:
+                                    _reactionCounts[_filteredPosts[index].id] ??
+                                        0,
+                                onReaction: () =>
+                                    _handleReaction(_filteredPosts[index].id),
+                                onEdit:
+                                    canEditPost(_filteredPosts[index].createdAt)
+                                        ? () => _editPost(_filteredPosts[index])
+                                        : null,
+                              );
+                            },
+                          ),
+                  ),
+          ),
+        ],
+      ),
     );
-  }
-
-  Future<void> _refreshPosts() async {
-    _currentPage = 1;
-    await _loadPosts(page: _currentPage);
   }
 
   @override

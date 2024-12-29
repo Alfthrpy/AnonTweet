@@ -1,4 +1,3 @@
-// lib/screens/posts_page.dart
 import 'package:blog_anon/components/postCards.dart';
 import 'package:blog_anon/services/reactions_service.dart';
 import 'package:flutter/material.dart';
@@ -17,14 +16,15 @@ class _PostsPageState extends State<PostsPage> {
   final _postService = PostsService();
   final _reactionService = ReactionService();
   List<Post> _posts = [];
-  Map<int, bool> _reactions = {}; // Menyimpan status like untuk setiap post
-  Map<int, int> _reactionCounts =
-      {}; // Menyimpan jumlah reaction untuk setiap post
+  List<Post> _filteredPosts = [];
+  Map<int, bool> _reactions = {};
+  Map<int, int> _reactionCounts = {};
   bool _isLoading = false;
   bool _isLoadingMore = false;
   final ScrollController _scrollController = ScrollController();
   int _currentPage = 1;
   final int _postsPerPage = 10;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -45,20 +45,24 @@ class _PostsPageState extends State<PostsPage> {
               await _postService.getReactionCount(post['id']);
           return postObj;
         }).toList());
-        setState(() {
-          _posts = posts
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Sort desc
-          _updateReactions(); // Update reactions state
-        });
+        if (mounted) {
+          setState(() {
+            _posts = posts..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            _updateReactions();
+            _filterPosts();
+          });
+        }
       }
     });
   }
 
   Future<void> _loadPosts({int page = 1}) async {
-    if (page == 1) {
-      setState(() => _isLoading = true);
-    } else {
-      setState(() => _isLoadingMore = true);
+    if (mounted) {
+      if (page == 1) {
+        setState(() => _isLoading = true);
+      } else {
+        setState(() => _isLoadingMore = true);
+      }
     }
     try {
       final postsData = await _postService.getPosts(
@@ -71,7 +75,8 @@ class _PostsPageState extends State<PostsPage> {
             _posts
                 .addAll(postsData.map((data) => Post.fromJson(data)).toList());
           }
-          _updateReactions(); // Update reactions state
+          _updateReactions();
+          _filterPosts();
         });
       }
     } catch (e) {
@@ -91,15 +96,33 @@ class _PostsPageState extends State<PostsPage> {
     }
   }
 
-  // Memperbarui status reactions untuk semua post
   Future<void> _updateReactions() async {
     for (var post in _posts) {
       final userId =
           (await SharedPreferences.getInstance()).getString("user_id") ?? '';
       final hasReacted = await _reactionService.hasReacted(post.id, userId);
+      if (mounted) {
+        setState(() {
+          _reactions[post.id] = hasReacted;
+          _reactionCounts[post.id] = post.reactionCount ?? 0;
+        });
+      }
+    }
+  }
+
+  void _filterPosts() {
+    if (mounted) {
       setState(() {
-        _reactions[post.id] = hasReacted;
-        _reactionCounts[post.id] = post.reactionCount ?? 0;
+        if (_searchQuery.isEmpty) {
+          _filteredPosts = List.from(_posts);
+        } else {
+          _filteredPosts = _posts.where((post) {
+            return post.author
+                    .toLowerCase()
+                    .contains(_searchQuery.toLowerCase()) ||
+                post.content.toLowerCase().contains(_searchQuery.toLowerCase());
+          }).toList();
+        }
       });
     }
   }
@@ -108,14 +131,16 @@ class _PostsPageState extends State<PostsPage> {
     final userId =
         (await SharedPreferences.getInstance()).getString("user_id") ?? '';
     await _reactionService.toggleReaction(postId, 'like', userId);
-    setState(() {
-      _reactions[postId] = !_reactions[postId]!; // Toggle status
-      if (_reactions[postId]!) {
-        _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) + 1;
-      } else {
-        _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) - 1;
-      }
-    });
+    if (mounted) {
+      setState(() {
+        _reactions[postId] = !_reactions[postId]!;
+        if (_reactions[postId]!) {
+          _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) + 1;
+        } else {
+          _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) - 1;
+        }
+      });
+    }
   }
 
   void _onScroll() {
@@ -127,11 +152,16 @@ class _PostsPageState extends State<PostsPage> {
     }
   }
 
+  Future<void> _refreshPosts() async {
+    _currentPage = 1;
+    await _loadPosts(page: _currentPage);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Semua Ciutan'),
+        title: const Text('Cuitan Terkini'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -139,38 +169,65 @@ class _PostsPageState extends State<PostsPage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _refreshPosts,
-              child: _posts.isEmpty
-                  ? const Center(
-                      child: Text('Belum ada ciutan'),
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      itemCount: _posts.length + (_isLoadingMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == _posts.length) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-                        return PostCard(
-                          post: _posts[index],
-                          isDetailed: false,
-                          hasReacted: _reactions[_posts[index].id] ?? false,
-                          reactionCount: _reactionCounts[_posts[index].id] ?? 0,
-                          onReaction: () => _handleReaction(_posts[index].id),
-                        );
-                      },
-                    ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                onChanged: (value) {
+                  _searchQuery = value;
+                  _filterPosts();
+                },
+                decoration: const InputDecoration(
+                  hintText: 'Cari Cuitan...',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.search),
+                  fillColor: Colors.white,
+                  filled: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
             ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _refreshPosts,
+                    child: _filteredPosts.isEmpty
+                        ? const Center(
+                            child: Text('Belum ada Cuitan'),
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            itemCount: _filteredPosts.length +
+                                (_isLoadingMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == _filteredPosts.length) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
+                              return PostCard(
+                                post: _filteredPosts[index],
+                                isDetailed: false,
+                                hasReacted:
+                                    _reactions[_filteredPosts[index].id] ??
+                                        false,
+                                reactionCount:
+                                    _reactionCounts[_filteredPosts[index].id] ??
+                                        0,
+                                onReaction: () =>
+                                    _handleReaction(_filteredPosts[index].id),
+                              );
+                            },
+                          ),
+                  ),
+          ),
+        ],
+      ),
     );
-  }
-
-  Future<void> _refreshPosts() async {
-    _currentPage = 1;
-    await _loadPosts(page: _currentPage);
   }
 
   @override

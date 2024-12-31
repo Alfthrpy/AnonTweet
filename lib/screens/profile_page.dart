@@ -42,6 +42,14 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _saveProfile() async {
+    if (_nameController.text.length > 12) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Nama tidak boleh lebih dari 12 karakter')),
+      );
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString("user_id");
     await prefs.setString('avatar_url', _selectedAvatar);
@@ -79,6 +87,14 @@ class _ProfilePageState extends State<ProfilePage> {
           style: TextStyle(fontWeight: FontWeight.bold, color: baseColor),
         ),
         backgroundColor: primaryColor,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Anda bisa menambahkan logika khusus di sini jika diperlukan
+            Navigator.pop(
+                context); // Fungsi ini untuk kembali ke halaman sebelumnya
+          },
+        ),
         actions: [
           IconButton(
               icon: const Icon(Icons.save),

@@ -80,6 +80,12 @@ class _HomePageState extends State<HomePage> {
     final prefs = await SharedPreferences.getInstance();
     if (_authorController.text.isNotEmpty &&
         _contentController.text.isNotEmpty) {
+      if (_authorController.text.length > 12) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Nama tidak boleh lebih dari 12 karakter')),
+        );
+        return;
+      }
       try {
         await _postService.createPost(
           author: _authorController.text,
@@ -93,14 +99,14 @@ class _HomePageState extends State<HomePage> {
 
         // Menampilkan snackbar jika berhasil membuat post
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Post created successfully!')),
+          SnackBar(content: Text('Berhasil membuat cuitan')),
         );
       } on SocketException {
         // Menangani jika tidak ada koneksi internet
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content:
-                  Text('No internet connection. Please check your network.')),
+              content: Text(
+                  'Tidak ada koneksi internet. Silakan periksa jaringan Anda.')),
         );
       } catch (e) {
         // Menangani kesalahan umum lainnya
@@ -111,7 +117,7 @@ class _HomePageState extends State<HomePage> {
     } else {
       // Menangani jika field kosong
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please fill in both fields.')),
+        SnackBar(content: Text('Harap isi kedua field.')),
       );
     }
   }
@@ -137,14 +143,29 @@ class _HomePageState extends State<HomePage> {
                 backgroundImage: NetworkImage(_avatarUrl!),
               ),
               onPressed: () {
-                Navigator.pushNamed(context, '/profile');
+                Navigator.pushNamed(context, '/profile').then((_) {
+                  if (mounted) {
+                    setState(() {
+                      _loadAvatarUrl();
+                      _initializeAuthorController();
+                    });
+                  }
+                });
               },
             )
           else
             IconButton(
               icon: const Icon(Icons.account_circle),
               onPressed: () {
-                Navigator.pushNamed(context, '/profile');
+                Navigator.pushNamed(context, '/profile').then((_) {
+                  // Setelah kembali dari halaman profil, memuat ulang data
+                  if (mounted) {
+                    setState(() {
+                      _loadAvatarUrl();
+                      _initializeAuthorController();
+                    });
+                  }
+                });
               },
             ),
         ],

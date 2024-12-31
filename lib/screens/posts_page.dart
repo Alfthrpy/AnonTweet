@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../services/posts_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:blog_anon/services/profile_pic_service.dart';
 
 class PostsPage extends StatefulWidget {
   const PostsPage({Key? key}) : super(key: key);
@@ -16,6 +17,7 @@ class PostsPage extends StatefulWidget {
 class _PostsPageState extends State<PostsPage> {
   final _postService = PostsService();
   final _reactionService = ReactionService();
+  final profilePicService = ProfilePicService();
   List<Post> _posts = [];
   List<Post> _filteredPosts = [];
   Map<int, bool> _reactions = {};
@@ -28,6 +30,8 @@ class _PostsPageState extends State<PostsPage> {
   bool _isLoadingTrending = false;
   Post? _trendingPost;
   String _searchQuery = '';
+  Map<String, String?> _profilePics = {};
+  Map<String, bool> _isCurrentUserMap = {};
 
   @override
   void initState() {
@@ -68,13 +72,27 @@ class _PostsPageState extends State<PostsPage> {
       final trendingPosts = await _postService.getTopPostsOfDay();
       if (trendingPosts.isNotEmpty) {
         final trendingPost = Post.fromJson(trendingPosts[0]);
+        final prefs = await SharedPreferences.getInstance();
+        final currentUserId = prefs.getString('user_id');
         if (mounted) {
           setState(() {
             _trendingPost = trendingPost;
             _reactions[trendingPost.id] = false;
             _reactionCounts[trendingPost.id] = trendingPost.reactionCount ?? 0;
+            _isCurrentUserMap[trendingPost.user_id ?? ''] =
+                trendingPost.user_id == currentUserId;
           });
-          // Update reaction status for trending post
+
+          if (trendingPost.user_id != null) {
+            final picLink =
+                await profilePicService.getProfilePic(trendingPost.user_id!);
+            if (mounted) {
+              setState(() {
+                _profilePics[trendingPost.user_id!] = picLink;
+              });
+            }
+          }
+
           final userId =
               (await SharedPreferences.getInstance()).getString("user_id") ??
                   '';
@@ -100,29 +118,58 @@ class _PostsPageState extends State<PostsPage> {
     }
   }
 
-  Future<void> _loadPosts({int page = 1}) async {
-    if (mounted) {
-      if (page == 1) {
-        setState(() => _isLoading = true);
-      } else {
-        setState(() => _isLoadingMore = true);
+  Future<void> _loadProfilePics(List<Post> posts) async {
+    for (var post in posts) {
+      if (post.user_id != null && !_profilePics.containsKey(post.user_id)) {
+        final picLink = await profilePicService.getProfilePic(post.user_id!);
+        if (mounted) {
+          setState(() {
+            _profilePics[post.user_id!] = picLink;
+          });
+        }
       }
     }
+  }
+
+  Future<void> _checkCurrentUser(List<Post> posts) async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentUserId = prefs.getString('user_id');
+
+    if (mounted) {
+      setState(() {
+        for (var post in posts) {
+          _isCurrentUserMap[post.user_id ?? ''] = post.user_id == currentUserId;
+        }
+      });
+    }
+  }
+
+  Future<void> _loadPosts({int page = 1}) async {
+    if (mounted) {
+      setState(() => page == 1 ? _isLoading = true : _isLoadingMore = true);
+    }
+
     try {
       final postsData = await _postService.getPosts(
           limit: _postsPerPage, offset: (page - 1) * _postsPerPage);
+      final newPosts = postsData.map((data) => Post.fromJson(data)).toList();
+
       if (mounted) {
         setState(() {
           if (page == 1) {
-            _posts = postsData.map((data) => Post.fromJson(data)).toList();
+            _posts = newPosts;
           } else {
-            _posts
-                .addAll(postsData.map((data) => Post.fromJson(data)).toList());
+            _posts.addAll(newPosts);
           }
           _updateReactions();
           _filterPosts();
         });
       }
+
+      await Future.wait([
+        _loadProfilePics(newPosts),
+        _checkCurrentUser(newPosts),
+      ]);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,11 +178,7 @@ class _PostsPageState extends State<PostsPage> {
       }
     } finally {
       if (mounted) {
-        if (page == 1) {
-          setState(() => _isLoading = false);
-        } else {
-          setState(() => _isLoadingMore = false);
-        }
+        setState(() => page == 1 ? _isLoading = false : _isLoadingMore = false);
       }
     }
   }
@@ -280,6 +323,12 @@ class _PostsPageState extends State<PostsPage> {
                                       _reactionCounts[_trendingPost!.id] ?? 0,
                                   onReaction: () =>
                                       _handleReaction(_trendingPost!.id),
+                                  profile_pic_link:
+                                      _profilePics[_trendingPost!.user_id] ??
+                                          '',
+                                  isCurrentUser: _isCurrentUserMap[
+                                          _trendingPost!.user_id] ??
+                                      false,
                                 ),
                                 const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 16),
@@ -309,17 +358,19 @@ class _PostsPageState extends State<PostsPage> {
                                     return const Center(
                                         child: CircularProgressIndicator());
                                   }
+                                  final post = _filteredPosts[index];
                                   return PostCard(
-                                    post: _filteredPosts[index],
+                                    post: post,
                                     isDetailed: false,
-                                    hasReacted:
-                                        _reactions[_filteredPosts[index].id] ??
+                                    hasReacted: _reactions[post.id] ?? false,
+                                    reactionCount:
+                                        _reactionCounts[post.id] ?? 0,
+                                    onReaction: () => _handleReaction(post.id),
+                                    profile_pic_link:
+                                        _profilePics[post.user_id] ?? '',
+                                    isCurrentUser:
+                                        _isCurrentUserMap[post.user_id] ??
                                             false,
-                                    reactionCount: _reactionCounts[
-                                            _filteredPosts[index].id] ??
-                                        0,
-                                    onReaction: () => _handleReaction(
-                                        _filteredPosts[index].id),
                                   );
                                 },
                               ),

@@ -9,10 +9,9 @@ class ProfilePicService {
           .from('profile_pic')
           .select('profile_pic_link')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
 
       if (response != null && response['profile_pic_link'] != null) {
-        print(response['profile_pic_link']);
         return response['profile_pic_link'];
       }
       return null;

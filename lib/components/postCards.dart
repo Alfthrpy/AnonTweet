@@ -1,4 +1,3 @@
-import 'package:blog_anon/services/profile_pic_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/post.dart';
@@ -9,6 +8,8 @@ class PostCard extends StatefulWidget {
   final bool isDetailed;
   final bool hasReacted;
   final int reactionCount;
+  final String profile_pic_link;
+  final bool isCurrentUser;
   final VoidCallback onReaction;
   final VoidCallback? onEdit;
 
@@ -18,6 +19,8 @@ class PostCard extends StatefulWidget {
     this.isDetailed = false,
     required this.hasReacted,
     required this.reactionCount,
+    required this.profile_pic_link,
+    required this.isCurrentUser,
     required this.onReaction,
     this.onEdit,
   }) : super(key: key);
@@ -27,37 +30,11 @@ class PostCard extends StatefulWidget {
 }
 
 class _PostCardState extends State<PostCard> {
-  bool _isCurrentUser = false;
   String? _profilePicUrl;
-  final profilePicService = ProfilePicService();
 
   @override
   void initState() {
     super.initState();
-    _checkUserId();
-    _loadProfilePic();
-  }
-
-  Future<void> _loadProfilePic() async {
-    if (widget.post?.user_id != null) {
-      final profilePicUrl =
-          await profilePicService.getProfilePic(widget.post!.user_id);
-      if (mounted) {
-        setState(() {
-          _profilePicUrl = profilePicUrl;
-        });
-      }
-    }
-  }
-
-  Future<void> _checkUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    final currentUserId = prefs.getString('user_id');
-    if (mounted) {
-      setState(() {
-        _isCurrentUser = currentUserId == widget.post?.user_id;
-      });
-    }
   }
 
   @override
@@ -75,7 +52,7 @@ class _PostCardState extends State<PostCard> {
         left: widget.isDetailed ? 0 : 16,
         right: widget.isDetailed ? 0 : 16,
       ),
-      color: _isCurrentUser ? baseColor : Colors.white,
+      color: widget.isCurrentUser ? baseColor : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
       ),
@@ -86,21 +63,19 @@ class _PostCardState extends State<PostCard> {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: tertiaryColor,
-                  backgroundImage: _profilePicUrl != null
-                      ? NetworkImage(_profilePicUrl!)
-                      : null,
-                  child: _profilePicUrl == null
-                      ? Text(
+                widget.profile_pic_link.isNotEmpty
+                    ? CircleAvatar(
+                        backgroundColor: tertiaryColor,
+                        backgroundImage: NetworkImage(widget.profile_pic_link),
+                        child: null,
+                      )
+                    : CircleAvatar(
+                        backgroundColor: tertiaryColor,
+                        child: Text(
                           widget.post!.author[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
-                ),
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -117,7 +92,7 @@ class _PostCardState extends State<PostCard> {
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
-                          if (_isCurrentUser)
+                          if (widget.isCurrentUser)
                             Text(' (Anda)', style: TextStyle(fontSize: 10)),
                         ],
                       ),

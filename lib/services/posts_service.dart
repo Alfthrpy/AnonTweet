@@ -83,10 +83,9 @@ class PostsService {
     );
 
     // Sort by reaction count and get top 3
-    return posts
-      ..sort((a, b) =>
-          (b['reaction_count'] as int).compareTo(a['reaction_count'] as int))
-      ..take(1).toList();
+    return [
+      posts.reduce((a, b) => a['reaction_count'] > b['reaction_count'] ? a : b)
+    ];
   }
 
   Future<void> updatePost(String postId, String newContent) async {

@@ -50,21 +50,25 @@ class _PostsPageState extends State<PostsMePage> {
                   await _postService.getReactionCount(post['id']);
               return postObj;
             }).toList());
-            setState(() {
-              _posts = posts
-                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-              _updateReactions();
-              _filterPosts();
-            });
+            if (mounted) {
+              setState(() {
+                _posts = posts
+                  ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+                _updateReactions();
+                _filterPosts();
+              });
+            }
           }
         });
   }
 
   Future<void> _loadPosts({int page = 1}) async {
-    if (page == 1) {
-      setState(() => _isLoading = true);
-    } else {
-      setState(() => _isLoadingMore = true);
+    if (mounted) {
+      if (page == 1) {
+        setState(() => _isLoading = true);
+      } else {
+        setState(() => _isLoadingMore = true);
+      }
     }
     try {
       final postsData = await _postService.getPostsByUserId(
@@ -175,40 +179,46 @@ class _PostsPageState extends State<PostsMePage> {
       final userId =
           (await SharedPreferences.getInstance()).getString("user_id") ?? '';
       final hasReacted = await _reactionService.hasReacted(post.id, userId);
-      setState(() {
-        _reactions[post.id] = hasReacted;
-        _reactionCounts[post.id] = post.reactionCount ?? 0;
-      });
+      if (mounted) {
+        setState(() {
+          _reactions[post.id] = hasReacted;
+          _reactionCounts[post.id] = post.reactionCount ?? 0;
+        });
+      }
     }
   }
 
   void _filterPosts() {
-    setState(() {
-      if (_searchQuery.isEmpty) {
-        _filteredPosts = List.from(_posts);
-      } else {
-        _filteredPosts = _posts.where((post) {
-          return post.author
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase()) ||
-              post.content.toLowerCase().contains(_searchQuery.toLowerCase());
-        }).toList();
-      }
-    });
+    if (mounted) {
+      setState(() {
+        if (_searchQuery.isEmpty) {
+          _filteredPosts = List.from(_posts);
+        } else {
+          _filteredPosts = _posts.where((post) {
+            return post.author
+                    .toLowerCase()
+                    .contains(_searchQuery.toLowerCase()) ||
+                post.content.toLowerCase().contains(_searchQuery.toLowerCase());
+          }).toList();
+        }
+      });
+    }
   }
 
   Future<void> _handleReaction(int postId) async {
     final userId =
         (await SharedPreferences.getInstance()).getString("user_id") ?? '';
     await _reactionService.toggleReaction(postId, 'like', userId);
-    setState(() {
-      _reactions[postId] = !_reactions[postId]!;
-      if (_reactions[postId]!) {
-        _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) + 1;
-      } else {
-        _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) - 1;
-      }
-    });
+    if (mounted) {
+      setState(() {
+        _reactions[postId] = !_reactions[postId]!;
+        if (_reactions[postId]!) {
+          _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) + 1;
+        } else {
+          _reactionCounts[postId] = (_reactionCounts[postId] ?? 0) - 1;
+        }
+      });
+    }
   }
 
   void _onScroll() {
@@ -230,21 +240,22 @@ class _PostsPageState extends State<PostsMePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cuitan Anda',
-            style:
-                TextStyle(fontWeight: FontWeight.bold, color: tertiaryColor)),
+            style: TextStyle(fontWeight: FontWeight.bold, color: baseColor)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshPosts,
           ),
         ],
+        backgroundColor: primaryColor,
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.only(top: 16),
             child: SizedBox(
               height: 40,
+              width: 300,
               child: TextField(
                 onChanged: (value) {
                   _searchQuery = value;

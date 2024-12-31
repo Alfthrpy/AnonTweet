@@ -1,15 +1,15 @@
 // lib/main.dart
 import 'package:blog_anon/screens/posts_me_page.dart';
 import 'package:blog_anon/screens/posts_page.dart';
+import 'package:blog_anon/screens/profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/home_page.dart';
 import 'navigation/bottom_navigation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 import 'package:nanoid2/nanoid2.dart';
-import 'themes/colors.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MainApp extends StatelessWidget {
   const MainApp({Key? key}) : super(key: key);
@@ -24,6 +24,10 @@ class MainApp extends StatelessWidget {
         fontFamily: 'Poppins',
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
+      routes: {
+        '/profile': (context) => const ProfilePage(),
+        // Definisikan screen lainnya jika ada
+      },
       home: const AppEntry(),
     );
   }
@@ -87,8 +91,35 @@ class _AppEntryState extends State<AppEntry> {
 }
 
 // Splash Screen: Halaman pertama yang muncul ketika pertama kali membuka aplikasi
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  bool _isChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCheckboxState();
+  }
+
+  // Load checkbox state from SharedPreferences
+  Future<void> _loadCheckboxState() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isChecked = prefs.getBool('privacy_policy_accepted') ?? false;
+    });
+  }
+
+  // Save checkbox state to SharedPreferences
+  Future<void> _saveCheckboxState(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('privacy_policy_accepted', value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,26 +129,65 @@ class SplashScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(Icons.apps, size: 100, color: Colors.blue),
+            Image.asset(
+              'assets/icon/icon.png',
+              width: 100,
+              height: 100,
+            ),
             const SizedBox(height: 20),
             const Text(
               'Selamat datang di AnonTweet',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Checkbox(
+                  value: _isChecked,
+                  onChanged: (bool? value) {
+                    if (value != null) {
+                      setState(() {
+                        _isChecked = value;
+                      });
+                      _saveCheckboxState(value);
+                    }
+                  },
+                ),
+                GestureDetector(
+                  onTap: () {
+                    // Open privacy policy link
+                    launchUrl(Uri.parse(
+                        'https://github.com/Alfthrpy/AnonTweet/blob/master/README.md'));
+                  },
+                  child: const Text(
+                    'I have read the Privacy Policy',
+                    style: TextStyle(
+                      decoration: TextDecoration.underline,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () async {
-                // Set isFirstRun menjadi false setelah pengguna menekan "OK"
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool('isFirstRun', false);
-                await prefs.setString('user_id', nanoid());
+              onPressed: _isChecked
+                  ? () async {
+                      // Set isFirstRun menjadi false setelah pengguna menekan "OK"
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('isFirstRun', false);
+                      await prefs.setString('user_id', nanoid());
 
-                // Pindahkan ke halaman utama
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MainAppHome()),
-                );
-              },
+                      // Pindahkan ke halaman utama
+                      if (!context.mounted) return;
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const MainAppHome()),
+                      );
+                    }
+                  : null,
               child: const Text('OK'),
             ),
           ],

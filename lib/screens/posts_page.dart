@@ -25,12 +25,15 @@ class _PostsPageState extends State<PostsPage> {
   final ScrollController _scrollController = ScrollController();
   int _currentPage = 1;
   final int _postsPerPage = 10;
+  bool _isLoadingTrending = false;
+  Post? _trendingPost;
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadPosts();
+    _loadTrendingPost();
     _setupRealtimeSubscription();
     _scrollController.addListener(_onScroll);
   }
@@ -55,6 +58,46 @@ class _PostsPageState extends State<PostsPage> {
         }
       }
     });
+  }
+
+  Future<void> _loadTrendingPost() async {
+    if (mounted) {
+      setState(() => _isLoadingTrending = true);
+    }
+    try {
+      final trendingPosts = await _postService.getTopPostsOfDay();
+      if (trendingPosts.isNotEmpty) {
+        final trendingPost = Post.fromJson(trendingPosts[0]);
+        if (mounted) {
+          setState(() {
+            _trendingPost = trendingPost;
+            _reactions[trendingPost.id] = false;
+            _reactionCounts[trendingPost.id] = trendingPost.reactionCount ?? 0;
+          });
+          // Update reaction status for trending post
+          final userId =
+              (await SharedPreferences.getInstance()).getString("user_id") ??
+                  '';
+          final hasReacted =
+              await _reactionService.hasReacted(trendingPost.id, userId);
+          if (mounted) {
+            setState(() {
+              _reactions[trendingPost.id] = hasReacted;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading trending post: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingTrending = false);
+      }
+    }
   }
 
   Future<void> _loadPosts({int page = 1}) async {
@@ -156,6 +199,7 @@ class _PostsPageState extends State<PostsPage> {
   Future<void> _refreshPosts() async {
     _currentPage = 1;
     await _loadPosts(page: _currentPage);
+    _loadTrendingPost();
   }
 
   @override
@@ -163,21 +207,22 @@ class _PostsPageState extends State<PostsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Semua Cuitan',
-            style:
-                TextStyle(fontWeight: FontWeight.bold, color: tertiaryColor)),
+            style: TextStyle(fontWeight: FontWeight.bold, color: baseColor)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshPosts,
           ),
         ],
+        backgroundColor: primaryColor,
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.only(top: 16),
             child: SizedBox(
               height: 40,
+              width: 300,
               child: TextField(
                 onChanged: (value) {
                   _searchQuery = value;
@@ -203,28 +248,82 @@ class _PostsPageState extends State<PostsPage> {
                         ? const Center(
                             child: Text('Belum ada Cuitan'),
                           )
-                        : ListView.builder(
+                        : ListView(
                             controller: _scrollController,
-                            itemCount: _filteredPosts.length +
-                                (_isLoadingMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == _filteredPosts.length) {
-                                return const Center(
-                                    child: CircularProgressIndicator());
-                              }
-                              return PostCard(
-                                post: _filteredPosts[index],
-                                isDetailed: false,
-                                hasReacted:
-                                    _reactions[_filteredPosts[index].id] ??
-                                        false,
-                                reactionCount:
-                                    _reactionCounts[_filteredPosts[index].id] ??
+                            padding: const EdgeInsets.all(16),
+                            children: [
+                              // Trending Section
+                              if (_trendingPost != null) ...[
+                                Row(
+                                  children: [
+                                    Icon(Icons.local_fire_department,
+                                        color: Colors.orange[700]),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Trending Hari Ini',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                PostCard(
+                                  post: _trendingPost,
+                                  isDetailed: false,
+                                  hasReacted:
+                                      _reactions[_trendingPost!.id] ?? false,
+                                  reactionCount:
+                                      _reactionCounts[_trendingPost!.id] ?? 0,
+                                  onReaction: () =>
+                                      _handleReaction(_trendingPost!.id),
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: Divider(thickness: 1),
+                                ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Cuitan Terbaru',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                              // Regular Posts
+                              ...List.generate(
+                                _filteredPosts.length +
+                                    (_isLoadingMore ? 1 : 0),
+                                (index) {
+                                  if (index == _filteredPosts.length) {
+                                    return const Center(
+                                        child: CircularProgressIndicator());
+                                  }
+                                  return PostCard(
+                                    post: _filteredPosts[index],
+                                    isDetailed: false,
+                                    hasReacted:
+                                        _reactions[_filteredPosts[index].id] ??
+                                            false,
+                                    reactionCount: _reactionCounts[
+                                            _filteredPosts[index].id] ??
                                         0,
-                                onReaction: () =>
-                                    _handleReaction(_filteredPosts[index].id),
-                              );
-                            },
+                                    onReaction: () => _handleReaction(
+                                        _filteredPosts[index].id),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                   ),
           ),

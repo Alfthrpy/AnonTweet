@@ -1,4 +1,4 @@
-package com.example.blog_anon
+package com.ifuinbandung.anontweet
 
 import io.flutter.embedding.android.FlutterActivity
 

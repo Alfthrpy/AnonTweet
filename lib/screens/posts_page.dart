@@ -1,5 +1,6 @@
 import 'package:blog_anon/components/postCards.dart';
 import 'package:blog_anon/services/reactions_service.dart';
+import 'package:blog_anon/themes/colors.dart';
 import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../services/posts_service.dart';
@@ -161,7 +162,9 @@ class _PostsPageState extends State<PostsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cuitan Terkini'),
+        title: const Text('Semua Cuitan',
+            style:
+                TextStyle(fontWeight: FontWeight.bold, color: tertiaryColor)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

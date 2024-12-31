@@ -1,3 +1,5 @@
+// lib/screens/posts_page.dart
+import 'package:blog_anon/themes/colors.dart';
 import 'package:blog_anon/components/postCards.dart';
 import 'package:blog_anon/services/reactions_service.dart';
 import 'package:flutter/material.dart';
@@ -227,7 +229,9 @@ class _PostsPageState extends State<PostsMePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cuitan Terkini'),
+        title: const Text('Cuitan Anda',
+            style:
+                TextStyle(fontWeight: FontWeight.bold, color: tertiaryColor)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -268,6 +272,7 @@ class _PostsPageState extends State<PostsMePage> {
                           )
                         : ListView.builder(
                             controller: _scrollController,
+                            padding: const EdgeInsets.all(16),
                             itemCount: _filteredPosts.length +
                                 (_isLoadingMore ? 1 : 0),
                             itemBuilder: (context, index) {
